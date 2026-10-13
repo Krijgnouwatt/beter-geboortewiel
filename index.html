@@ -1,0 +1,502 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#E3211B">
+<title>Geboortedatum wiel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #111111;
+    --red: #E3211B;
+    --paper: #F4F3F0;
+    --muted: #6b6a66;
+    --line: #dcdad4;
+    --row: 36px;      /* hoogte van één rij in het wiel (gelijk aan ROW in het script) */
+    --rows: 3;        /* zichtbare rijen */
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: #e9e7e2;
+    font-family: Archivo, system-ui, sans-serif;
+    color: var(--ink);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .phone {
+    width: 100%; max-width: 420px; height: 100dvh; max-height: 860px;
+    background: var(--paper);
+    display: flex; flex-direction: column;
+    padding: max(18px, env(safe-area-inset-top)) 20px max(20px, env(safe-area-inset-bottom));
+    position: relative; overflow: hidden;
+  }
+  @media (min-width: 480px) {
+    .phone { border-radius: 36px; box-shadow: 0 30px 80px rgba(0,0,0,.18), 0 0 0 10px #111; height: 820px; }
+  }
+  header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 14px; border-bottom: 2px solid var(--red); }
+  .logo { font-weight: 900; font-size: 22px; letter-spacing: -.02em; display: flex; align-items: center; gap: 4px; }
+  .logo i { width: 9px; height: 9px; background: var(--red); display: inline-block; margin-top: 6px; }
+  .sound { border: 0; background: none; font-size: 20px; cursor: pointer; padding: 6px; }
+  .label { font-weight: 600; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin: 22px 0 8px; }
+  h1 { font-weight: 800; font-size: 34px; line-height: 1.02; letter-spacing: -.03em; margin: 0; }
+
+  .seg { display: grid; grid-template-columns: 1fr 1fr; background: #fff; border-radius: 14px; padding: 4px; margin-top: 18px; border: 1px solid var(--line); }
+  .seg button { border: 0; background: none; font: inherit; font-weight: 700; font-size: 16px; padding: 12px; border-radius: 10px; cursor: pointer; color: var(--ink); transition: background .2s, color .2s; }
+  .seg button.on { background: var(--red); color: #fff; }
+
+  /* ---------- het wiel ---------- */
+  /* Drie losse wieltjes, elk in een eigen zwart huisje */
+  .wheels {
+    margin: 22px auto 0; width: 100%; max-width: 320px;
+    display: grid; grid-template-columns: 0.8fr 1.45fr 1.05fr; gap: 12px;
+  }
+  .wheels > div {
+    position: relative;
+    padding: 6px 9px 9px;
+    background: linear-gradient(#232323 0%, #111 45%, #0a0a0a 100%);
+    border-radius: 16px;
+    box-shadow: 0 10px 22px rgba(17,17,17,.25), inset 0 1px 0 rgba(255,255,255,.10), inset 0 -2px 0 rgba(0,0,0,.6);
+  }
+  /* rode wijzertjes links en rechts op elk huisje */
+  .wheels > div::before, .wheels > div::after {
+    content: ''; position: absolute; top: calc(6px + 16px + var(--row) * var(--rows) / 2); width: 0; height: 0;
+    border-top: 5px solid transparent; border-bottom: 5px solid transparent; transform: translateY(-50%); z-index: 8;
+  }
+  .wheels > div::before { left: 1px; border-left: 7px solid var(--red); }
+  .wheels > div::after { right: 1px; border-right: 7px solid var(--red); }
+  .wheel-name {
+    font-weight: 600; font-size: 9px; letter-spacing: .16em; text-transform: uppercase;
+    color: #8f8c85; text-align: center; height: 16px; line-height: 12px;
+  }
+  .wheel-wrap {
+    position: relative;
+    height: calc(var(--row) * var(--rows));
+    background: #f7f6f2;
+    border-radius: 12px;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.04);
+    overflow: hidden; touch-action: none; user-select: none;
+  }
+  .wheel-wrap.active { box-shadow: inset 0 0 0 1px rgba(0,0,0,.5), 0 0 0 2px var(--red); }
+  /* geribbelde randjes die meedraaien */
+  .rim {
+    position: absolute; top: 0; bottom: 0; width: 6px; z-index: 4; pointer-events: none;
+    background: repeating-linear-gradient(180deg, #b9b5ab 0 2px, #f4f2ed 2px 6px);
+  }
+  .rim.l { left: 0; box-shadow: inset -1px 0 0 rgba(0,0,0,.18); }
+  .rim.r { right: 0; box-shadow: inset 1px 0 0 rgba(0,0,0,.18); }
+  /* glazen venster op de geselecteerde rij */
+  .band {
+    position: absolute; left: 0; right: 0; top: 50%; height: var(--row);
+    transform: translateY(-50%); z-index: 6; pointer-events: none;
+    background: linear-gradient(rgba(255,255,255,.55), rgba(255,255,255,.08) 55%, rgba(255,255,255,.25));
+    border-top: 2px solid var(--ink); border-bottom: 2px solid var(--ink);
+    box-shadow: 0 2px 6px rgba(0,0,0,.18), 0 -2px 6px rgba(0,0,0,.18);
+  }
+  .band.tick { animation: tick .12s ease-out; }
+  @keyframes tick { 0% { transform: translateY(-50%) scaleY(1.08); } 100% { transform: translateY(-50%) scaleY(1); } }
+  /* schaduw boven en onder: de rol buigt van je af */
+  .fade { position: absolute; left: 0; right: 0; height: 50%; pointer-events: none; z-index: 5; }
+  .fade.top { top: 0; background: linear-gradient(rgba(17,17,17,.62), rgba(17,17,17,.18) 45%, rgba(17,17,17,0) 80%); }
+  .fade.bot { bottom: 0; background: linear-gradient(rgba(17,17,17,0) 20%, rgba(17,17,17,.18) 55%, rgba(17,17,17,.62)); }
+  .col { position: absolute; inset: 0; perspective: 900px; cursor: grab; outline: none; z-index: 2; }
+  .col:active { cursor: grabbing; }
+  .col:focus-visible { box-shadow: inset 0 0 0 2px var(--red); }
+  .item {
+    position: absolute; left: 0; right: 0; top: 50%; height: var(--row); margin-top: calc(var(--row) / -2);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 16px; letter-spacing: -.01em;
+    color: var(--ink); will-change: transform, opacity;
+    backface-visibility: hidden;
+  }
+  .item.sel { font-weight: 900; }
+  .item.off { color: #c4c2bc; }
+
+  /* ---------- uitkomst ---------- */
+  .result { margin-top: 22px; text-align: center; min-height: 92px; }
+  .result .date { font-weight: 800; font-size: 26px; letter-spacing: -.02em; }
+  .result .sub { color: var(--muted); font-weight: 600; margin-top: 6px; font-size: 15px; }
+  .result .sub b { color: var(--ink); }
+  .spacer { flex: 1; }
+  .cta { border: 0; width: 100%; background: var(--red); color: #fff; font: inherit; font-weight: 800; font-size: 18px; padding: 18px; border-radius: 16px; cursor: pointer; letter-spacing: -.01em; }
+  .cta:active { transform: scale(.98); }
+  .hint { text-align: center; color: var(--muted); font-size: 12px; margin-top: 10px; }
+
+  .done { position: absolute; inset: 0; background: var(--red); color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 30px; opacity: 0; pointer-events: none; transition: opacity .25s; z-index: 10; }
+  .done.show { opacity: 1; pointer-events: auto; }
+  .done h2 { font-size: 46px; font-weight: 900; letter-spacing: -.03em; margin: 0; }
+  .done p { font-weight: 600; font-size: 17px; margin: 12px 0 28px; }
+  .done button { background: var(--ink); color: #fff; border: 0; font: inherit; font-weight: 700; padding: 14px 26px; border-radius: 14px; cursor: pointer; }
+  .confetti { position: absolute; width: 10px; height: 10px; z-index: 11; pointer-events: none; }
+  .ios-haptic { position: absolute; left: -9999px; }
+</style>
+</head>
+<body>
+<div class="phone" id="phone">
+  <header>
+    <div class="logo">BETER<i></i></div>
+    <button class="sound" id="sound" aria-label="Geluid aan of uit">🔊</button>
+  </header>
+
+  <div class="label">Aanmelden</div>
+  <h1 id="title">Wanneer ben je jarig?</h1>
+
+  <div class="seg" role="tablist">
+    <button id="m-kind" class="on" role="tab">Kind</button>
+    <button id="m-volw" role="tab">Volwassene</button>
+  </div>
+
+  <div class="wheels">
+    <div>
+      <div class="wheel-name">Dag</div>
+      <div class="wheel-wrap"><div class="band"></div><div class="col" id="c-day" tabindex="0" aria-label="Dag"></div><div class="fade top"></div><div class="fade bot"></div></div>
+    </div>
+    <div>
+      <div class="wheel-name">Maand</div>
+      <div class="wheel-wrap"><div class="band"></div><div class="col" id="c-month" tabindex="0" aria-label="Maand"></div><div class="fade top"></div><div class="fade bot"></div></div>
+    </div>
+    <div>
+      <div class="wheel-name">Jaar</div>
+      <div class="wheel-wrap"><div class="band"></div><div class="col" id="c-year" tabindex="0" aria-label="Jaar"></div><div class="fade top"></div><div class="fade bot"></div></div>
+    </div>
+  </div>
+
+  <div class="result" aria-live="polite">
+    <div class="date" id="r-date"></div>
+    <div class="sub" id="r-sub"></div>
+  </div>
+
+  <div class="spacer"></div>
+  <button class="cta" id="ok">Klaar</button>
+  <div class="hint">Draai aan het wiel. Op je telefoon voel je elke stap.</div>
+
+  <div class="done" id="done">
+    <h2>Geregeld.</h2>
+    <p id="done-txt"></p>
+    <button id="again">Nog een keer</button>
+  </div>
+</div>
+
+<!-- iOS 18+ Safari kent geen navigator.vibrate, maar geeft wel een tik bij het omzetten van een switch -->
+<input type="checkbox" switch id="ios-haptic" class="ios-haptic" aria-hidden="true" tabindex="-1">
+<label for="ios-haptic" id="ios-haptic-label" class="ios-haptic" aria-hidden="true"></label>
+
+<script>
+(() => {
+  const MONTHS = ['januari','februari','maart','april','mei','juni','juli','augustus','september','oktober','november','december'];
+  const DAYS = ['zondag','maandag','dinsdag','woensdag','donderdag','vrijdag','zaterdag'];
+  const today = new Date(); today.setHours(0,0,0,0);
+  const THIS_YEAR = today.getFullYear();
+  const ROW = 36;
+  const STEP = 32;                                           // graden per rij op de rol
+  const RADIUS = ROW / (2 * Math.tan(STEP * Math.PI / 360));  // straal zodat rijen precies aansluiten
+
+  // ---------- trillen + klik ----------
+  let soundOn = true;
+  try { soundOn = localStorage.getItem('geboortewiel-sound') !== '0'; } catch {}
+  const soundBtn = document.getElementById('sound');
+  soundBtn.textContent = soundOn ? '🔊' : '🔈';
+  soundBtn.onclick = () => {
+    soundOn = !soundOn; soundBtn.textContent = soundOn ? '🔊' : '🔈';
+    try { localStorage.setItem('geboortewiel-sound', soundOn ? '1' : '0'); } catch {}
+  };
+  let ctx;
+  function audio() {
+    if (!ctx) { try { ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch { return null; } }
+    if (ctx.state === 'suspended') ctx.resume();
+    return ctx;
+  }
+  function tone(a, t, type, f0, f1, dur, vol) {
+    const o = a.createOscillator(), g = a.createGain();
+    o.type = type; o.frequency.setValueAtTime(f0, t);
+    o.frequency.exponentialRampToValueAtTime(f1, t + dur * 0.6);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.002);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(a.destination); o.start(t); o.stop(t + dur + 0.01);
+  }
+  let noiseBuf;
+  function noise(a, t, freq, q, dur, vol) {
+    if (!noiseBuf) {
+      noiseBuf = a.createBuffer(1, Math.floor(a.sampleRate * 0.05), a.sampleRate);
+      const d = noiseBuf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+    const s = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
+    s.buffer = noiseBuf; f.type = 'bandpass'; f.frequency.value = freq; f.Q.value = q;
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.connect(f).connect(g).connect(a.destination); s.start(t); s.stop(t + dur + 0.01);
+  }
+  // ---------- "Er is er één jarig" ----------
+  // Noten en ritme van de bladmuziek (PianoKinderliedjes.nl, centrale C-positie).
+  // [halve tonen t.o.v. C, tellen]; 3/4-maat.
+  const SONG = [
+    // Er is er één ja-rig, hoe-ra, hoe-ra, dat kun je wel zien, dat is zij.
+    [-5,1],[0,1],[-5,1],[0,1], [4,1],[0,1],[4,1], [7,2],[7,1], [7,2],[5,1], [4,1],[2,1],[0,1], [2,1],[-3,1],[-1,1], [0,3],
+    // Dat vin-den wij al-len zo pret-tig, ja ja, en daar-om zin-gen wij blij:
+    [-5,1],[0,1],[-5,1],[0,1], [4,1],[0,1],[4,1], [7,1],[7,1],[7,1], [7,2],[4,1], [2,2],[-1,1], [2,1],[0,1],[-3,1], [-5,3],
+    // Zij le-ve lang, hoe-ra, hoe-ra, zij le-ve lang, hoe-ra, hoe-ra,
+    [-5,1], [5,2],[5,1], [5,2],[7,1], [4,2],[4,1], [4,2],[0,1], [2,2],[2,1], [2,1],[0,1],[2,1], [4,2],[4,1], [4,2],[4,1],
+    // zij le-ve lang, hoe-ra, hoe-ra, zij le-ve lang, hoe-ra!
+    [7,2],[5,1], [4,2],[2,1], [0,2],[0,1], [0,2],[4,1], [7,2],[5,1], [4,2],[2,1], [0,3],
+  ];
+  const BEAT = 0.24;          // seconden per tel: vrolijk tempo
+  // muziekdoosje: heldere toon met boventoon die mooi uitklinkt
+  function note(a, t, semis, beats) {
+    const f = 523.25 * Math.pow(2, semis / 12);
+    const len = Math.min(0.9, beats * BEAT + 0.12);
+    tone(a, t, 'triangle', f, f, len, 0.22);
+    tone(a, t, 'sine', f * 2, f * 2, len * 0.5, 0.06);
+    tone(a, t, 'sine', f * 3, f * 3, 0.05, 0.03);
+  }
+  // Draaien levert "tegoed" op; het liedje speelt in zijn eigen ritme zolang er tegoed is.
+  let songPos = 0, credit = 0, playingSong = false, songReset = 0;
+  function songStep() {
+    if (credit <= 0 || !soundOn) { playingSong = false; return; }
+    const a = audio(); if (!a) { playingSong = false; return; }
+    credit--; playingSong = true;
+    const [semis, beats] = SONG[songPos % SONG.length];
+    songPos++;
+    note(a, a.currentTime, semis, beats);
+    setTimeout(songStep, beats * BEAT * 1000);
+  }
+  function click(kind = 'dag') {
+    if (!soundOn) return;
+    const a = audio(); if (!a) return;
+    if (kind === 'knop') { tone(a, a.currentTime, 'triangle', 2400, 1600, 0.05, 0.16); return; }
+    credit = Math.min(credit + 1, 3);
+    if (!playingSong) songStep();
+    clearTimeout(songReset);
+    songReset = setTimeout(() => { songPos = 0; }, 2500);   // even stil = liedje begint opnieuw
+  }
+  const iosLabel = document.getElementById('ios-haptic-label');
+  const canVibrate = typeof navigator.vibrate === 'function';
+  let lastBuzz = 0;
+  function buzz(ms = 8) {
+    const now = performance.now();
+    if (now - lastBuzz < 28) return;           // niet sneller dan ~35 tikken per seconde
+    lastBuzz = now;
+    if (canVibrate) { try { navigator.vibrate(ms); } catch {} }
+    else { try { iosLabel.click(); } catch {} }
+  }
+  function tick(pitch, band) {
+    buzz(); click(pitch);
+    if (!band) return;
+    band.classList.remove('tick'); void band.offsetWidth; band.classList.add('tick');
+  }
+
+  // ---------- een draaiwiel-kolom ----------
+  class Wheel {
+    constructor(el, onChange, pitch) {
+      this.el = el; this.onChange = onChange; this.pitch = pitch;
+      this.items = []; this.pos = 0; this.min = 0; this.max = 0;
+      this.anim = null; this.lastIdx = null; this.nodes = [];
+      this.wrap = el.parentElement; this.band = this.wrap.querySelector('.band');
+      this.rims = ['l', 'r'].map(s => { const r = document.createElement('div'); r.className = 'rim ' + s; this.wrap.appendChild(r); return r; });
+      this.bind();
+    }
+    setItems(labels, index, disabled = () => false) {
+      this.labels = labels; this.disabled = disabled;
+      this.el.innerHTML = '';
+      this.nodes = labels.map(l => { const d = document.createElement('div'); d.className = 'item'; d.textContent = l; this.el.appendChild(d); return d; });
+      this.max = labels.length - 1;
+      this.pos = Math.max(0, Math.min(this.max, index));
+      this.lastIdx = Math.round(this.pos);
+      this.render();
+    }
+    get index() { return Math.round(Math.max(0, Math.min(this.max, this.pos))); }
+    render() {
+      const sel = this.index;
+      for (let i = 0; i < this.nodes.length; i++) {
+        const d = i - this.pos, n = this.nodes[i];
+        if (Math.abs(d) > 2.8) { n.style.visibility = 'hidden'; continue; }
+        n.style.visibility = '';
+        // rijen liggen op een echte cilinder: draaien om de as van de rol
+        const ang = d * STEP;
+        n.style.transform = `translateZ(${-RADIUS}px) rotateX(${-ang}deg) translateZ(${RADIUS}px)`;
+        n.style.opacity = String(Math.max(0, Math.cos(ang * Math.PI / 180)));
+        n.classList.toggle('sel', i === sel);
+        n.classList.toggle('off', this.disabled(i));
+      }
+      const y = `0 ${(-this.pos * ROW).toFixed(1)}px`;
+      for (const r of this.rims) r.style.backgroundPosition = y;
+    }
+    setPos(p) {
+      // rubberband voorbij de randen
+      if (p < this.min) p = this.min - Math.pow(this.min - p, 0.7) * 0.6;
+      if (p > this.max) p = this.max + Math.pow(p - this.max, 0.7) * 0.6;
+      this.pos = p;
+      const idx = this.index;
+      if (idx !== this.lastIdx) { this.lastIdx = idx; tick(this.pitch, this.band); this.onChange(idx, false); }
+      this.render();
+    }
+    stop() { if (this.anim) cancelAnimationFrame(this.anim); this.anim = null; }
+    animateTo(target, duration) {
+      this.stop();
+      const from = this.pos, t0 = performance.now();
+      const step = (t) => {
+        const k = Math.min(1, (t - t0) / duration);
+        const e = 1 - Math.pow(1 - k, 3);        // ease-out
+        this.setPos(from + (target - from) * e);
+        if (k < 1) this.anim = requestAnimationFrame(step);
+        else { this.anim = null; this.pos = target; this.render(); this.settle(); }
+      };
+      this.anim = requestAnimationFrame(step);
+    }
+    settle() {
+      let i = this.index;
+      // niet-bestaande dagen (bv. 31 februari) schuiven terug
+      while (i > 0 && this.disabled(i)) i--;
+      if (i !== this.index || Math.abs(this.pos - i) > 0.001) { this.animateTo(i, 220); return; }
+      if (!this.dragging) this.wrap.classList.remove('active');
+      this.onChange(i, true);
+    }
+    go(delta) { this.animateTo(Math.max(0, Math.min(this.max, this.index + delta)), 180); }
+    bind() {
+      let startY = 0, startPos = 0, samples = [], dragging = false;
+      this.el.addEventListener('pointerdown', (e) => {
+        audio();
+        this.stop(); dragging = this.dragging = true; startY = e.clientY; startPos = this.pos;
+        this.wrap.classList.add('active');
+        samples = [{ y: e.clientY, t: performance.now() }];
+        this.el.setPointerCapture(e.pointerId);
+      });
+      this.el.addEventListener('pointermove', (e) => {
+        if (!dragging) return;
+        this.setPos(startPos - (e.clientY - startY) / ROW);
+        samples.push({ y: e.clientY, t: performance.now() });
+        if (samples.length > 6) samples.shift();
+      });
+      const end = (e) => {
+        if (!dragging) return; dragging = this.dragging = false;
+        const a = samples[0], b = samples[samples.length - 1];
+        const dt = Math.max(1, b.t - a.t);
+        const v = -(b.y - a.y) / dt / ROW * 1000;  // rijen per seconde
+        const moved = Math.abs(e.clientY - startY);
+        if (moved < 4) {
+          // tik op een rij boven/onder het midden = daarheen draaien
+          const r = this.el.getBoundingClientRect();
+          const off = Math.round((e.clientY - (r.top + r.height / 2)) / ROW);
+          if (off) return this.go(off);
+        }
+        let target = this.pos + (Math.abs(v) > 1.5 ? v * 0.32 : 0);
+        target = Math.round(Math.max(this.min, Math.min(this.max, target)));
+        const dist = Math.abs(target - this.pos);
+        this.animateTo(target, Math.min(1400, 260 + dist * 55));
+      };
+      this.el.addEventListener('pointerup', end);
+      this.el.addEventListener('pointercancel', end);
+      let wheelTimer;
+      this.el.addEventListener('wheel', (e) => {
+        e.preventDefault(); audio(); this.stop();
+        this.wrap.classList.add('active');
+        this.setPos(this.pos + e.deltaY / (e.deltaMode === 1 ? 1 : ROW * 1.4));
+        clearTimeout(wheelTimer);
+        wheelTimer = setTimeout(() => this.animateTo(this.index, 160), 110);
+      }, { passive: false });
+      this.el.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowUp') { e.preventDefault(); audio(); this.go(-1); }
+        if (e.key === 'ArrowDown') { e.preventDefault(); audio(); this.go(1); }
+        if (e.key === 'PageUp') { e.preventDefault(); this.go(-10); }
+        if (e.key === 'PageDown') { e.preventDefault(); this.go(10); }
+      });
+    }
+  }
+
+  // ---------- datumlogica ----------
+  const daysIn = (y, m) => new Date(y, m + 1, 0).getDate();
+  const MODES = {
+    kind: { from: THIS_YEAR - 17, to: THIS_YEAR, def: [15, 5, THIS_YEAR - 7], title: 'Wanneer is je kind jarig?' },
+    volw: { from: 1920, to: THIS_YEAR - 16, def: [15, 5, 1985], title: 'Wanneer ben je jarig?' },
+  };
+  let mode = 'kind';
+  let years = [];
+  const state = { d: 15, m: 5, y: THIS_YEAR - 7 };
+
+  const wDay = new Wheel(document.getElementById('c-day'), (i) => { state.d = i + 1; update(); }, 'dag');
+  const wMonth = new Wheel(document.getElementById('c-month'), (i) => { state.m = i; refreshDays(); update(); }, 'maand');
+  const wYear = new Wheel(document.getElementById('c-year'), (i) => { state.y = years[i]; refreshDays(); update(); }, 'jaar');
+
+  function future(i) {
+    const d = new Date(state.y, state.m, i + 1);
+    return d > today;
+  }
+  function refreshDays() {
+    const max = daysIn(state.y, state.m);
+    wDay.disabled = (i) => i + 1 > max || future(i);
+    wDay.render();
+    // staat het dagwiel op een dag die niet bestaat (31 april), dan schuift het zelf terug
+    if (!wDay.anim && wDay.index > 0 && wDay.disabled(wDay.index)) wDay.settle();
+  }
+  function setMode(m) {
+    mode = m;
+    document.getElementById('m-kind').classList.toggle('on', m === 'kind');
+    document.getElementById('m-volw').classList.toggle('on', m === 'volw');
+    document.getElementById('title').textContent = MODES[m].title;
+    const c = MODES[m];
+    years = []; for (let y = c.from; y <= c.to; y++) years.push(y);
+    [state.d, state.m, state.y] = c.def;
+    wDay.setItems(Array.from({ length: 31 }, (_, i) => String(i + 1)), state.d - 1);
+    wMonth.setItems(MONTHS, state.m);
+    wYear.setItems(years.map(String), years.indexOf(state.y));
+    refreshDays(); update();
+  }
+  document.getElementById('m-kind').onclick = () => { audio(); if (mode !== 'kind') { tick('knop');setMode('kind'); } };
+  document.getElementById('m-volw').onclick = () => { audio(); if (mode !== 'volw') { tick('knop');setMode('volw'); } };
+
+  function validDate() {
+    const d = Math.min(state.d, daysIn(state.y, state.m));
+    return new Date(state.y, state.m, d);
+  }
+  function update() {
+    const b = validDate();
+    const ok = b <= today;
+    let age = today.getFullYear() - b.getFullYear();
+    const hadBirthday = today.getMonth() > b.getMonth() || (today.getMonth() === b.getMonth() && today.getDate() >= b.getDate());
+    if (!hadBirthday) age--;
+    let next = new Date(today.getFullYear(), b.getMonth(), b.getDate());
+    if (next < today) next = new Date(today.getFullYear() + 1, b.getMonth(), b.getDate());
+    const days = Math.round((next - today) / 86400000);
+    document.getElementById('r-date').textContent = `${DAYS[b.getDay()]} ${b.getDate()} ${MONTHS[b.getMonth()]} ${b.getFullYear()}`;
+    const sub = document.getElementById('r-sub');
+    if (!ok) sub.textContent = 'Die dag moet nog komen.';
+    else if (days === 0) sub.innerHTML = `<b>${age} jaar</b> · vandaag jarig! 🎉`;
+    else sub.innerHTML = `<b>${age} jaar</b> · nog ${days} ${days === 1 ? 'dag' : 'dagen'} tot de verjaardag 🎈`;
+    document.getElementById('ok').disabled = !ok;
+    document.getElementById('ok').style.opacity = ok ? 1 : .4;
+  }
+
+  // ---------- klaar ----------
+  const done = document.getElementById('done');
+  document.getElementById('ok').onclick = () => {
+    const b = validDate();
+    const iso = `${b.getFullYear()}-${String(b.getMonth() + 1).padStart(2, '0')}-${String(b.getDate()).padStart(2, '0')}`;
+    document.getElementById('done-txt').textContent = `${b.getDate()} ${MONTHS[b.getMonth()]} ${b.getFullYear()} staat erin. (${iso})`;
+    done.classList.add('show');
+    if (canVibrate) { try { navigator.vibrate([18, 60, 18, 60, 40]); } catch {} } else { buzz(); setTimeout(() => buzz(), 90); }
+    confetti();
+  };
+  document.getElementById('again').onclick = () => done.classList.remove('show');
+
+  function confetti() {
+    const phone = document.getElementById('phone');
+    const colors = ['#fff', '#111', '#F4F3F0'];
+    for (let i = 0; i < 40; i++) {
+      const c = document.createElement('div'); c.className = 'confetti';
+      c.style.background = colors[i % 3];
+      c.style.left = (50 + (Math.random() - .5) * 20) + '%'; c.style.top = '42%';
+      phone.appendChild(c);
+      const dx = (Math.random() - .5) * 420, dy = -Math.random() * 380 - 60;
+      c.animate([
+        { transform: 'translate(0,0) rotate(0)', opacity: 1 },
+        { transform: `translate(${dx}px, ${dy + 600}px) rotate(${Math.random() * 720}deg)`, opacity: 0 },
+      ], { duration: 1400 + Math.random() * 600, easing: 'cubic-bezier(.2,.6,.4,1)' }).onfinish = () => c.remove();
+    }
+  }
+
+  setMode('kind');
+})();
+</script>
+</body>
+</html>
