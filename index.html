@@ -166,6 +166,18 @@
     box-shadow: 0 2px 6px rgba(0,0,0,.18), 0 -2px 6px rgba(0,0,0,.18);
   }
   .band.tick { animation: tick .12s ease-out; }
+  /* duim die één keer voordoet hoe je draait */
+  .thumb-hint {
+    position: absolute; left: 50%; top: calc(6px + 16px + var(--row) * var(--rows) / 2); z-index: 20; pointer-events: none;
+    width: 0; height: 0; opacity: 0; transition: opacity .25s;
+  }
+  .thumb-hint.show { opacity: 1; }
+  .thumb-hint .ring {
+    position: absolute; left: -16px; top: -16px; width: 32px; height: 32px; border-radius: 50%;
+    background: rgba(227,33,27,.28); border: 2px solid rgba(227,33,27,.75); transform: scale(.4); opacity: 0; transition: transform .18s, opacity .18s;
+  }
+  .thumb-hint.press .ring { transform: scale(1); opacity: 1; }
+  .thumb-hint .hand { position: absolute; left: -15px; top: -6px; font-size: 38px; line-height: 1; filter: drop-shadow(0 4px 6px rgba(0,0,0,.35)); }
   @keyframes tick { 0% { transform: translateY(-50%) scaleY(1.08); } 100% { transform: translateY(-50%) scaleY(1); } }
   .fade { position: absolute; left: 0; right: 0; height: 50%; pointer-events: none; z-index: 5; }
   .fade.top { top: 0; background: linear-gradient(rgba(17,17,17,.62), rgba(17,17,17,.18) 45%, rgba(17,17,17,0) 80%); }
@@ -511,6 +523,52 @@
     wm.setItems(MONTHS, state.m);
     wy.setItems(years.map(String), Math.max(0, years.indexOf(state.y)));
     refresh(); emit();
+    return wd;
+  }
+
+  // Eén keer per bezoek: een duim veegt over het dagwiel naar beneden, zodat je ziet wat je moet doen.
+  let hintShown = false;
+  function thumbHint(wd) {
+    if (hintShown) return;
+    hintShown = true;
+    const host = wd.wrap.parentElement;
+    const el = document.createElement('div');
+    el.className = 'thumb-hint';
+    el.innerHTML = '<div class="ring"></div><div class="hand">👆</div>';
+    host.appendChild(el);
+    let cancelled = false, raf = 0;
+    const cancel = () => { cancelled = true; cancelAnimationFrame(raf); el.remove(); };
+    document.addEventListener('pointerdown', cancel, { once: true, capture: true });
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const DIST = 2 * ROW; // twee dagen terug
+    (async () => {
+      await wait(700); if (cancelled) return;
+      el.style.transform = `translateY(${-DIST / 2}px)`;
+      el.classList.add('show');
+      await wait(300); if (cancelled) return;
+      el.classList.add('press');
+      wd.wrap.classList.add('active');
+      await wait(150); if (cancelled) return;
+      const from = wd.pos, t0 = performance.now(), T = 750;
+      await new Promise((done) => {
+        const step = (t) => {
+          if (cancelled) return done();
+          const k = Math.min(1, (t - t0) / T), e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+          el.style.transform = `translateY(${-DIST / 2 + DIST * e}px)`;
+          wd.setPos(from - 2 * e);
+          if (k < 1) raf = requestAnimationFrame(step); else done();
+        };
+        raf = requestAnimationFrame(step);
+      });
+      if (cancelled) return;
+      el.classList.remove('press');
+      wd.animateTo(Math.round(wd.pos), 200);
+      await wait(250); if (cancelled) return;
+      el.classList.remove('show');
+      await wait(300);
+      document.removeEventListener('pointerdown', cancel, { capture: true });
+      el.remove();
+    })();
   }
 
   // ---------- gegevens uit apps/beter ----------
@@ -618,7 +676,8 @@
       f('wheels').classList.toggle('invalid', !!err);
       return !err;
     };
-    dateWheels(f('wheels'), kind, initial?.birthDate, (v) => { birthDate = v; showBirth(); });
+    const dayWheel = dateWheels(f('wheels'), kind, initial?.birthDate, (v) => { birthDate = v; showBirth(); });
+    if (!initial) thumbHint(dayWheel);
 
     // feestmomenten
     let occasions = initial ? [...initial.occasions] : ['sinterklaas'];
