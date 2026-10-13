@@ -556,7 +556,7 @@
       const li = document.createElement('li');
       if (editing === p.id) { ul.appendChild(li); mountForm(li, p.kind, p); continue; }
       li.className = 'card profile';
-      const tag = p.self ? '(jij)' : p.kind === 'child' ? `(${ageOn(p.birthDate)})` : '(volwassene)';
+      const tag = p.self ? `(jij, ${ageOn(p.birthDate)})` : `(${ageOn(p.birthDate)})`;
       li.innerHTML = `<div class="avatar">${esc(p.name[0].toUpperCase())}</div>
         <div class="who"><p class="name">${esc(p.name)} <span class="muted" style="font-weight:400">${tag}</span></p>
         <p class="meta">${p.occasions.map((o) => `${OCCASION_LABEL[o]} tot € ${p.gift}`).join(' · ')}<span style="display:block">Jarig op ${birthText(p.birthDate)}</span></p></div>
@@ -608,7 +608,7 @@
       const ok = birthDate <= iso(today.getFullYear(), today.getMonth(), today.getDate());
       const age = ageOn(birthDate);
       const tooYoung = adult && age < ADULT_MIN_AGE;
-      f('age').textContent = adult ? '' : `${age} jaar`;
+      f('age').textContent = `${age} jaar`;
       const help = f('birth-help');
       const err = !ok ? 'Deze datum klopt niet. Kijk de dag nog even na.'
         : tooYoung ? (self ? `Je moet minstens ${ADULT_MIN_AGE} jaar zijn. Kijk je geboortedatum nog even na.` : `Een volwassene is minstens ${ADULT_MIN_AGE} jaar. Jonger? Voeg dan een kind toe.`)
